@@ -81,7 +81,7 @@ def store_ingested_document(
                 (document_id, course_id, document_metadata.filename, key),
             )
 
-            for chunk_id, chunk, embedding in zip(chunk_ids, chunks, embeddings, strict=True):
+            for chunk_id, chunk, embedding in zip(chunk_ids, chunks, embeddings):
                 chunk_index = int(chunk.metadata.get("chunk_index", 0))
                 metadata = {
                     **chunk.metadata,
@@ -141,4 +141,3 @@ def store_ingested_document(
 
 def _vector_literal(embedding: Sequence[float]) -> str:
     return "[" + ",".join(str(value) for value in embedding) + "]"
-

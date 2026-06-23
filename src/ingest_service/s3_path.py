@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from pathlib import PurePosixPath
+from typing import Optional
 from urllib.parse import unquote_plus
 
 
@@ -7,7 +8,7 @@ from urllib.parse import unquote_plus
 class S3DocumentMetadata:
     semester_id: str
     course_name: str
-    professor: str | None
+    professor: Optional[str]
     filename: str
 
 
@@ -38,4 +39,3 @@ def metadata_from_s3_key(key: str) -> S3DocumentMetadata:
         professor=professor,
         filename=filename,
     )
-

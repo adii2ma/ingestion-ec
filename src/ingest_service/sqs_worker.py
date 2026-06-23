@@ -1,4 +1,5 @@
 import logging
+from typing import Optional
 
 import boto3
 from botocore.client import BaseClient
@@ -18,7 +19,7 @@ def build_sqs_client(*, region_name: str) -> BaseClient:
 def poll_sqs_once(
     settings: Settings,
     *,
-    sqs_client: BaseClient | None = None,
+    sqs_client: Optional[BaseClient] = None,
 ) -> list[IngestionResult]:
     """Poll SQS once, ingest every S3 object-created event, then delete successful messages."""
     if not settings.sqs_queue_url:

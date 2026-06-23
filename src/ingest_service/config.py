@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Optional
 from urllib.parse import quote_plus
 
 from pydantic import Field
@@ -11,18 +12,18 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     aws_region: str = Field(default="us-east-1", alias="AWS_REGION")
-    s3_bucket: str | None = Field(default=None, alias="S3_BUCKET")
-    s3_key: str | None = Field(default=None, alias="S3_KEY")
-    sqs_queue_url: str | None = Field(default=None, alias="SQS_QUEUE_URL")
+    s3_bucket: Optional[str] = Field(default=None, alias="S3_BUCKET")
+    s3_key: Optional[str] = Field(default=None, alias="S3_KEY")
+    sqs_queue_url: Optional[str] = Field(default=None, alias="SQS_QUEUE_URL")
     sqs_wait_seconds: int = Field(default=20, alias="SQS_WAIT_SECONDS", ge=0, le=20)
     sqs_max_messages: int = Field(default=5, alias="SQS_MAX_MESSAGES", ge=1, le=10)
 
-    database_url: str | None = Field(default=None, alias="DATABASE_URL")
-    db_host: str | None = Field(default=None, alias="DB_HOST")
+    database_url: Optional[str] = Field(default=None, alias="DATABASE_URL")
+    db_host: Optional[str] = Field(default=None, alias="DB_HOST")
     db_port: int = Field(default=5432, alias="DB_PORT")
-    db_name: str | None = Field(default=None, alias="DB_NAME")
-    db_user: str | None = Field(default=None, alias="DB_USER")
-    db_password: str | None = Field(default=None, alias="DB_PASSWORD")
+    db_name: Optional[str] = Field(default=None, alias="DB_NAME")
+    db_user: Optional[str] = Field(default=None, alias="DB_USER")
+    db_password: Optional[str] = Field(default=None, alias="DB_PASSWORD")
     db_sslmode: str = Field(default="require", alias="DB_SSLMODE")
     openai_api_key: str = Field(alias="OPENAI_API_KEY")
     embedding_model: str = Field(default="text-embedding-3-small", alias="EMBEDDING_MODEL")

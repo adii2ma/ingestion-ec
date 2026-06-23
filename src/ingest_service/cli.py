@@ -1,4 +1,5 @@
 import json
+from typing import Optional
 
 import click
 from dotenv import load_dotenv
@@ -17,7 +18,7 @@ def main() -> None:
 @main.command()
 @click.option("--bucket", help="S3 bucket containing the document.")
 @click.option("--key", help="S3 object key to ingest.")
-def ingest(bucket: str | None, key: str | None) -> None:
+def ingest(bucket: Optional[str], key: Optional[str]) -> None:
     """Ingest one explicit S3 object."""
     settings = get_settings()
     bucket = bucket or settings.s3_bucket
