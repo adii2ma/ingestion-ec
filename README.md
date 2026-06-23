@@ -3,12 +3,12 @@
 Base Python ingestion service for this flow:
 
 ```text
-S3 document -> LangChain loader/parser -> chunks -> embeddings -> Aurora PostgreSQL pgvector
+S3 ObjectCreated event -> SQS -> S3 document -> LangChain parser -> chunks -> embeddings -> Aurora PostgreSQL pgvector
 ```
 
-The service ingests one S3 object at a time, parses it into LangChain `Document` objects,
-splits those documents into retrievable chunks, creates embeddings for each chunk, and stores
-the chunks plus metadata in a pgvector collection.
+The service can ingest one explicit S3 object, or poll SQS for S3 `ObjectCreated` events.
+For the SQS path, the S3 event message provides the bucket and object key, so you do not need to
+hardcode `S3_KEY` in `.env`.
 
 ## What LangChain Is Doing Here
 
@@ -71,6 +71,14 @@ adds consistent source metadata.
 : Creates the LangChain `PGVector` store and writes chunks. IDs are deterministic, so re-ingesting
 the same object updates the same chunk IDs instead of creating random IDs every time.
 
+`src/ingest_service/s3_events.py`
+: Parses SQS message bodies that contain S3 object-created notifications and extracts the real
+`bucket` and `key` for each uploaded object.
+
+`src/ingest_service/sqs_worker.py`
+: Polls SQS, ingests each S3 object referenced by the message, and deletes the message after
+successful ingestion.
+
 `src/ingest_service/pipeline.py`
 : Orchestrates the full ingestion pipeline.
 
@@ -98,6 +106,16 @@ Create local config:
 cp .env.example .env
 ```
 
+On EC2, attach an IAM role to the instance. The role should allow at least:
+
+```text
+s3:GetObject on the source bucket/prefix
+sqs:ReceiveMessage, sqs:DeleteMessage, sqs:GetQueueAttributes on the queue
+```
+
+With that setup, you do not put AWS access keys in `.env`. Boto3 discovers credentials from the
+EC2 instance role automatically.
+
 For local database testing:
 
 ```bash
@@ -110,34 +128,76 @@ For Aurora, make sure pgvector is enabled in your database:
 CREATE EXTENSION IF NOT EXISTS vector;
 ```
 
-Then set `DATABASE_URL` in `.env` to your Aurora PostgreSQL connection string:
+For Aurora, either set one full `DATABASE_URL`:
 
 ```text
 postgresql+psycopg://USER:PASSWORD@AURORA-ENDPOINT:5432/DB_NAME
 ```
 
-## Run
+Or use the split fields in `.env`:
 
-Using `.env` values:
-
-```bash
-ingest-service ingest
+```text
+DB_HOST=your-aurora-cluster.cluster-xxxxxxxxxxxx.us-east-1.rds.amazonaws.com
+DB_PORT=5432
+DB_NAME=ingest
+DB_USER=postgres
+DB_PASSWORD=your-password
+DB_SSLMODE=require
 ```
 
-Or pass the S3 object explicitly:
+The service builds the PGVector connection string from those fields when `DATABASE_URL` is not set.
+
+## Run
+
+Poll SQS once:
+
+```bash
+ingest-service poll-sqs
+```
+
+Keep polling SQS:
+
+```bash
+ingest-service poll-sqs --forever
+```
+
+Manually ingest one object:
 
 ```bash
 ingest-service ingest --bucket your-bucket-name --key documents/example.pdf
 ```
 
+You can also set `S3_BUCKET` and `S3_KEY` in `.env` for local/manual testing, then run:
+
+```bash
+ingest-service ingest
+```
+
 You can also run the package directly:
 
 ```bash
-python -m ingest_service ingest --bucket your-bucket-name --key documents/example.pdf
+python -m ingest_service poll-sqs --forever
 ```
 
 The command prints JSON with the S3 source, number of parsed documents, number of chunks stored,
 and the chunk IDs written to pgvector.
+
+## Embedding Model
+
+You usually do not need to change the embedding model. Leave this default:
+
+```text
+EMBEDDING_MODEL=text-embedding-3-small
+```
+
+Then put only your OpenAI API key in `.env`:
+
+```text
+OPENAI_API_KEY=sk-your-key
+```
+
+Change `EMBEDDING_MODEL` only when you have a specific reason, such as wanting larger vectors or a
+different cost/quality tradeoff.
 
 ## Tuning Chunking
 
@@ -156,9 +216,8 @@ against your own documents.
 
 Good next additions are:
 
-1. SQS or EventBridge trigger for automatic ingestion when S3 objects are uploaded.
-2. Batch ingestion for S3 prefixes.
-3. A retrieval API that searches pgvector by query text.
-4. Ingestion status tables for retries, failures, and source version tracking.
+1. Batch ingestion for existing S3 prefixes.
+2. A retrieval API that searches pgvector by query text.
+3. Ingestion status tables for retries, failures, and source version tracking.
+4. Dead-letter queue handling for failed documents.
 5. Authentication and network hardening for Aurora access.
-

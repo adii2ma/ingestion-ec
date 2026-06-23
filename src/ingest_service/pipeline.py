@@ -28,7 +28,7 @@ def ingest_s3_document(settings: Settings, *, bucket: str, key: str) -> Ingestio
         model=settings.embedding_model,
     )
     vector_store = build_vector_store(
-        connection_string=settings.database_url,
+        connection_string=settings.pg_connection_string,
         collection_name=settings.pgvector_collection,
         embeddings=embeddings,
     )
@@ -40,4 +40,3 @@ def ingest_s3_document(settings: Settings, *, bucket: str, key: str) -> Ingestio
         chunks_stored=len(chunks),
         ids=ids,
     )
-
