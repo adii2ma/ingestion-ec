@@ -31,16 +31,43 @@ LangChain gives us common interfaces for each step in the ingestion pipeline.
    a list of numbers that captures semantic meaning. Similar chunks have nearby vectors.
 
 4. **Storage in pgvector**
-   `PGVector` stores chunk text, metadata, and embedding vectors in PostgreSQL using the `vector`
-   extension. Aurora PostgreSQL can be used when the `vector` extension is enabled on the database.
-   Later, retrieval uses vector similarity search to find chunks relevant to a question.
+   The service writes directly into your `courses`, `documents`, and `chunks` tables using
+   `psycopg`. The `chunks.embedding` column is a PostgreSQL `vector(1536)`, so later retrieval can
+   use cosine similarity search against your own schema.
+
+## S3 Folder Metadata
+
+The ingestion code derives database metadata from the S3 object key.
+
+```text
+semester_id/course_name/professor/filename.pdf
+semester_id/course_name/filename.pdf
+```
+
+Examples:
+
+```text
+semester-5/Operating Systems/Dr Sharma/scheduler.pdf
+semester-5/Operating Systems/processes.pdf
+```
+
+For the first key, the stored metadata is:
+
+```text
+semester_id = semester-5
+course_name = Operating Systems
+professor = Dr Sharma
+filename = scheduler.pdf
+```
+
+For the second key, `professor` is stored as `NULL` because there is no professor folder.
 
 ## Files
 
 `pyproject.toml`
 : Python package metadata and dependencies. The key LangChain packages are split by integration:
 `langchain-community` for the S3 loader, `langchain-text-splitters` for chunking,
-`langchain-openai` for embeddings, and `langchain-postgres` for PGVector.
+and `langchain-openai` for embeddings. Database writes use `psycopg`.
 
 `.env.example`
 : Example runtime configuration. Copy it to `.env` locally and fill in S3, Aurora/Postgres, and
@@ -51,7 +78,8 @@ OpenAI settings.
 point `DATABASE_URL` at Aurora PostgreSQL.
 
 `scripts/init_pgvector.sql`
-: Enables the PostgreSQL `vector` extension in the local database container.
+: Enables the PostgreSQL `vector` extension and creates the same local `courses`, `documents`,
+`chunks`, and indexes you created in Aurora.
 
 `src/ingest_service/config.py`
 : Reads settings from environment variables or `.env` using `pydantic-settings`.
@@ -67,9 +95,12 @@ adds consistent source metadata.
 `src/ingest_service/embeddings.py`
 : Builds the embedding model. Right now it uses OpenAI's `text-embedding-3-small` by default.
 
-`src/ingest_service/vector_store.py`
-: Creates the LangChain `PGVector` store and writes chunks. IDs are deterministic, so re-ingesting
-the same object updates the same chunk IDs instead of creating random IDs every time.
+`src/ingest_service/s3_path.py`
+: Parses the S3 key into `semester_id`, `course_name`, optional `professor`, and `filename`.
+
+`src/ingest_service/repository.py`
+: Writes to your custom tables. It upserts `courses`, upserts `documents`, deletes old chunks for
+the document, and inserts the new chunk rows with `vector(1536)` embeddings and JSONB metadata.
 
 `src/ingest_service/s3_events.py`
 : Parses SQS message bodies that contain S3 object-created notifications and extracts the real
@@ -145,7 +176,7 @@ DB_PASSWORD=your-password
 DB_SSLMODE=require
 ```
 
-The service builds the PGVector connection string from those fields when `DATABASE_URL` is not set.
+The service builds the PostgreSQL connection string from those fields when `DATABASE_URL` is not set.
 
 ## Run
 
@@ -164,7 +195,7 @@ ingest-service poll-sqs --forever
 Manually ingest one object:
 
 ```bash
-ingest-service ingest --bucket your-bucket-name --key documents/example.pdf
+ingest-service ingest --bucket your-bucket-name --key "semester-5/Operating Systems/processes.pdf"
 ```
 
 You can also set `S3_BUCKET` and `S3_KEY` in `.env` for local/manual testing, then run:

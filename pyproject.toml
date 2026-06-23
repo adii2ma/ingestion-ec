@@ -10,7 +10,6 @@ dependencies = [
     "langchain-community>=0.3.0",
     "langchain-core>=0.3.0",
     "langchain-openai>=0.2.0",
-    "langchain-postgres>=0.0.12",
     "langchain-text-splitters>=0.3.0",
     "psycopg[binary]>=3.2.0",
     "pydantic-settings>=2.4.0",
@@ -36,4 +35,3 @@ where = ["src"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-

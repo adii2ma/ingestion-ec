@@ -24,8 +24,6 @@ class Settings(BaseSettings):
     db_user: str | None = Field(default=None, alias="DB_USER")
     db_password: str | None = Field(default=None, alias="DB_PASSWORD")
     db_sslmode: str = Field(default="require", alias="DB_SSLMODE")
-    pgvector_collection: str = Field(default="documents", alias="PGVECTOR_COLLECTION")
-
     openai_api_key: str = Field(alias="OPENAI_API_KEY")
     embedding_model: str = Field(default="text-embedding-3-small", alias="EMBEDDING_MODEL")
 
@@ -34,7 +32,7 @@ class Settings(BaseSettings):
 
     @property
     def pg_connection_string(self) -> str:
-        """Return a SQLAlchemy-style PostgreSQL connection string for LangChain PGVector."""
+        """Return a PostgreSQL connection string from DATABASE_URL or Aurora fields."""
         if self.database_url:
             return self.database_url
 
@@ -61,6 +59,14 @@ class Settings(BaseSettings):
             f"postgresql+psycopg://{user}:{password}@{self.db_host}:{self.db_port}"
             f"/{self.db_name}?sslmode={self.db_sslmode}"
         )
+
+    @property
+    def psycopg_connection_string(self) -> str:
+        """Return a psycopg-compatible PostgreSQL connection string."""
+        connection_string = self.pg_connection_string
+        if connection_string.startswith("postgresql+psycopg://"):
+            return connection_string.replace("postgresql+psycopg://", "postgresql://", 1)
+        return connection_string
 
 
 @lru_cache

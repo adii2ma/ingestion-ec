@@ -15,7 +15,11 @@ def build_sqs_client(*, region_name: str) -> BaseClient:
     return boto3.client("sqs", region_name=region_name)
 
 
-def poll_sqs_once(settings: Settings, *, sqs_client: BaseClient | None = None) -> list[IngestionResult]:
+def poll_sqs_once(
+    settings: Settings,
+    *,
+    sqs_client: BaseClient | None = None,
+) -> list[IngestionResult]:
     """Poll SQS once, ingest every S3 object-created event, then delete successful messages."""
     if not settings.sqs_queue_url:
         raise ValueError("Set SQS_QUEUE_URL before running the SQS worker.")
@@ -44,4 +48,3 @@ def poll_sqs_once(settings: Settings, *, sqs_client: BaseClient | None = None) -
         client.delete_message(QueueUrl=settings.sqs_queue_url, ReceiptHandle=receipt_handle)
 
     return results
-
