@@ -1,0 +1,17 @@
+services:
+  pgvector:
+    image: pgvector/pgvector:pg16
+    container_name: ingest-pgvector
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ingest
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgvector-data:/var/lib/postgresql/data
+      - ./scripts/init_pgvector.sql:/docker-entrypoint-initdb.d/init_pgvector.sql:ro
+
+volumes:
+  pgvector-data:
+
