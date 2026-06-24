@@ -1,4 +1,7 @@
+import re
+from collections import OrderedDict
 from pathlib import Path
+from shutil import which
 from subprocess import run
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 
@@ -90,12 +93,20 @@ class PowerPointLoader:
 
 
 class LegacyPowerPointLoader:
-    """Convert legacy PPT to PPTX with LibreOffice, then extract text."""
+    """Extract text from legacy PPT files.
+
+    LibreOffice gives better results when available. On small EC2 workers where
+    it is not installed, fall back to extracting readable strings from the binary
+    PowerPoint file.
+    """
 
     def __init__(self, path: Path) -> None:
         self.path = path
 
     def load(self) -> list[Document]:
+        if not which("soffice"):
+            return self._load_from_binary_strings()
+
         with TemporaryDirectory() as temp_dir:
             result = run(
                 [
@@ -120,3 +131,37 @@ class LegacyPowerPointLoader:
                 )
 
             return PowerPointLoader(converted_path).load()
+
+    def _load_from_binary_strings(self) -> list[Document]:
+        data = self.path.read_bytes()
+        candidates: list[str] = []
+
+        for match in re.finditer(rb"(?:[\x20-\x7e]\x00){4,}", data):
+            candidates.append(match.group(0).decode("utf-16le", errors="ignore"))
+
+        for match in re.finditer(rb"[\x20-\x7e]{8,}", data):
+            candidates.append(match.group(0).decode("latin-1", errors="ignore"))
+
+        cleaned = OrderedDict()
+        for candidate in candidates:
+            text = re.sub(r"\s+", " ", candidate).strip()
+            if _looks_like_document_text(text):
+                cleaned[text] = None
+
+        content = "\n".join(cleaned.keys())
+        if not content:
+            raise RuntimeError(f"No readable text found in legacy PPT file {self.path.name}.")
+
+        return [
+            Document(
+                page_content=content,
+                metadata={"legacy_ppt_extraction": "binary_strings"},
+            )
+        ]
+
+
+def _looks_like_document_text(text: str) -> bool:
+    if len(text) < 8:
+        return False
+    letters = sum(character.isalpha() for character in text)
+    return letters >= 4 and letters / max(len(text), 1) >= 0.25
