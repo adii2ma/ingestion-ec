@@ -1,4 +1,5 @@
 import json
+import logging
 from typing import Optional
 
 import click
@@ -13,6 +14,10 @@ from ingest_service.sqs_worker import poll_sqs_once
 def main() -> None:
     """Ingest documents from S3 into Aurora PostgreSQL pgvector."""
     load_dotenv()
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    )
 
 
 @main.command()

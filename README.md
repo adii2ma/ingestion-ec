@@ -69,7 +69,7 @@ For the second key, `professor` is stored as `NULL` because there is no professo
 : Python package metadata and dependencies. The key LangChain packages are split by integration:
 `langchain-community` for the S3 loader, `langchain-text-splitters` for chunking,
 and `langchain-openai` for embeddings. PDF parsing uses `pypdf`, DOCX parsing uses `docx2txt`,
-and database writes use `psycopg`.
+PPTX parsing uses `python-pptx`, and database writes use `psycopg`.
 
 `.env.example`
 : Example runtime configuration. Copy it to `.env` locally and fill in S3, Aurora/Postgres, and
@@ -89,6 +89,8 @@ point `DATABASE_URL` at Aurora PostgreSQL.
 `src/ingest_service/document_loader.py`
 : Contains the S3 parsing step. It downloads the S3 object, chooses a lightweight parser by file
 extension, returns LangChain `Document` objects, and adds consistent source metadata.
+Supported types are `.pdf`, `.docx`, `.pptx`, `.txt`, `.md`, and `.csv`. Legacy `.ppt` is supported
+only when LibreOffice/`soffice` is installed on the worker so it can be converted to `.pptx`.
 
 `src/ingest_service/chunking.py`
 : Contains the chunking step. `chunk_documents()` uses `RecursiveCharacterTextSplitter` and adds a

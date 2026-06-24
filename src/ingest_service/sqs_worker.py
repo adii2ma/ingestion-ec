@@ -42,10 +42,29 @@ def poll_sqs_once(
             client.delete_message(QueueUrl=settings.sqs_queue_url, ReceiptHandle=receipt_handle)
             continue
 
+        message_succeeded = True
         for event in events:
-            logger.info("Ingesting s3://%s/%s from %s", event.bucket, event.key, event.event_name)
-            results.append(ingest_s3_document(settings, bucket=event.bucket, key=event.key))
+            source = f"s3://{event.bucket}/{event.key}"
+            logger.info("sqs.event.start source=%s event=%s", source, event.event_name)
+            try:
+                result = ingest_s3_document(settings, bucket=event.bucket, key=event.key)
+            except Exception:
+                message_succeeded = False
+                logger.exception("sqs.event.failed source=%s", source)
+                continue
 
-        client.delete_message(QueueUrl=settings.sqs_queue_url, ReceiptHandle=receipt_handle)
+            results.append(result)
+            logger.info(
+                "sqs.event.done source=%s parsed_documents=%s chunks_stored=%s",
+                source,
+                result.parsed_documents,
+                result.chunks_stored,
+            )
+
+        if message_succeeded:
+            client.delete_message(QueueUrl=settings.sqs_queue_url, ReceiptHandle=receipt_handle)
+            logger.info("sqs.message.deleted events=%s", len(events))
+        else:
+            logger.warning("sqs.message.kept_for_retry events=%s", len(events))
 
     return results
