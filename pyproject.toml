@@ -11,10 +11,11 @@ dependencies = [
     "langchain-core>=0.3.0",
     "langchain-openai>=0.2.0",
     "langchain-text-splitters>=0.3.0",
+    "docx2txt>=0.8",
     "psycopg[binary]>=3.2.0",
+    "pypdf>=5.0.0",
     "pydantic-settings>=2.4.0",
     "python-dotenv>=1.0.1",
-    "unstructured[pdf,docx]>=0.15.0",
 ]
 
 [project.optional-dependencies]

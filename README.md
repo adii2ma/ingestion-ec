@@ -15,7 +15,8 @@ hardcode `S3_KEY` in `.env`.
 LangChain gives us common interfaces for each step in the ingestion pipeline.
 
 1. **Parsing/loading**
-   `S3FileLoader` downloads an object from S3 and parses the file content into LangChain
+   The service downloads an object from S3 with `boto3`, then parses the file with a LangChain
+   loader such as `PyPDFLoader`, `Docx2txtLoader`, or `TextLoader`. The output is LangChain
    `Document` objects. A `Document` has two important fields:
    `page_content`, which is the text, and `metadata`, which tracks things like source path,
    S3 bucket, S3 key, page number, and chunk index.
@@ -67,7 +68,8 @@ For the second key, `professor` is stored as `NULL` because there is no professo
 `pyproject.toml`
 : Python package metadata and dependencies. The key LangChain packages are split by integration:
 `langchain-community` for the S3 loader, `langchain-text-splitters` for chunking,
-and `langchain-openai` for embeddings. Database writes use `psycopg`.
+and `langchain-openai` for embeddings. PDF parsing uses `pypdf`, DOCX parsing uses `docx2txt`,
+and database writes use `psycopg`.
 
 `.env.example`
 : Example runtime configuration. Copy it to `.env` locally and fill in S3, Aurora/Postgres, and
@@ -85,8 +87,8 @@ point `DATABASE_URL` at Aurora PostgreSQL.
 : Reads settings from environment variables or `.env` using `pydantic-settings`.
 
 `src/ingest_service/document_loader.py`
-: Contains the S3 parsing step. `load_document_from_s3()` returns LangChain `Document` objects and
-adds consistent source metadata.
+: Contains the S3 parsing step. It downloads the S3 object, chooses a lightweight parser by file
+extension, returns LangChain `Document` objects, and adds consistent source metadata.
 
 `src/ingest_service/chunking.py`
 : Contains the chunking step. `chunk_documents()` uses `RecursiveCharacterTextSplitter` and adds a
