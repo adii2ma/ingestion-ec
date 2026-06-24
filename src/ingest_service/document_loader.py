@@ -32,6 +32,7 @@ def load_document_from_s3(bucket: str, key: str, *, region_name: str) -> list[Do
         temp_path.unlink(missing_ok=True)
 
     for document in documents:
+        document.page_content = _clean_text(document.page_content)
         document.metadata.update(
             {
                 "s3_bucket": bucket,
@@ -48,6 +49,8 @@ def _loader_for_path(path: Path, suffix: str):
         return PyPDFLoader(str(path))
     if suffix == ".docx":
         return Docx2txtLoader(str(path))
+    if suffix == ".doc":
+        return BinaryStringDocumentLoader(path, source_format="doc")
     if suffix == ".pptx":
         return PowerPointLoader(path)
     if suffix == ".ppt":
@@ -133,6 +136,17 @@ class LegacyPowerPointLoader:
             return PowerPointLoader(converted_path).load()
 
     def _load_from_binary_strings(self) -> list[Document]:
+        return BinaryStringDocumentLoader(self.path, source_format="ppt").load()
+
+
+class BinaryStringDocumentLoader:
+    """Best-effort text extraction for legacy binary Office files."""
+
+    def __init__(self, path: Path, *, source_format: str) -> None:
+        self.path = path
+        self.source_format = source_format
+
+    def load(self) -> list[Document]:
         data = self.path.read_bytes()
         candidates: list[str] = []
 
@@ -150,12 +164,15 @@ class LegacyPowerPointLoader:
 
         content = "\n".join(cleaned.keys())
         if not content:
-            raise RuntimeError(f"No readable text found in legacy PPT file {self.path.name}.")
+            raise RuntimeError(f"No readable text found in legacy {self.source_format} file.")
 
         return [
             Document(
                 page_content=content,
-                metadata={"legacy_ppt_extraction": "binary_strings"},
+                metadata={
+                    "legacy_binary_extraction": "binary_strings",
+                    "source_format": self.source_format,
+                },
             )
         ]
 
@@ -165,3 +182,7 @@ def _looks_like_document_text(text: str) -> bool:
         return False
     letters = sum(character.isalpha() for character in text)
     return letters >= 4 and letters / max(len(text), 1) >= 0.25
+
+
+def _clean_text(text: str) -> str:
+    return text.replace("\x00", "")

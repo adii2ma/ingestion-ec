@@ -36,8 +36,11 @@ def ingest_s3_document(settings: Settings, *, bucket: str, key: str) -> Ingestio
         api_key=settings.openai_api_key,
         model=settings.embedding_model,
     )
-    chunk_embeddings = (
-        embeddings.embed_documents([chunk.page_content for chunk in chunks]) if chunks else []
+    chunk_embeddings = embed_chunk_texts(
+        embeddings,
+        [chunk.page_content for chunk in chunks],
+        batch_size=settings.embedding_batch_size,
+        source=source,
     )
     logger.info("ingest.embedded source=%s embeddings=%s", source, len(chunk_embeddings))
     stored_document = store_ingested_document(
@@ -56,3 +59,28 @@ def ingest_s3_document(settings: Settings, *, bucket: str, key: str) -> Ingestio
         chunks_stored=len(chunks),
         ids=[str(chunk_id) for chunk_id in stored_document.chunk_ids],
     )
+
+
+def embed_chunk_texts(
+    embeddings,
+    texts: list[str],
+    *,
+    batch_size: int,
+    source: str,
+) -> list[list[float]]:
+    if not texts:
+        return []
+
+    embedded_texts: list[list[float]] = []
+    for start in range(0, len(texts), batch_size):
+        batch = texts[start : start + batch_size]
+        batch_number = (start // batch_size) + 1
+        logger.info(
+            "ingest.embedding_batch source=%s batch=%s size=%s",
+            source,
+            batch_number,
+            len(batch),
+        )
+        embedded_texts.extend(embeddings.embed_documents(batch))
+
+    return embedded_texts

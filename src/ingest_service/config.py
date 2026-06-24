@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     db_sslmode: str = Field(default="require", alias="DB_SSLMODE")
     openai_api_key: str = Field(alias="OPENAI_API_KEY")
     embedding_model: str = Field(default="text-embedding-3-small", alias="EMBEDDING_MODEL")
+    embedding_batch_size: int = Field(default=128, alias="EMBEDDING_BATCH_SIZE", ge=1, le=512)
 
     chunk_size: int = Field(default=1000, alias="CHUNK_SIZE", ge=100)
     chunk_overlap: int = Field(default=200, alias="CHUNK_OVERLAP", ge=0)

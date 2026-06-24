@@ -90,7 +90,8 @@ point `DATABASE_URL` at Aurora PostgreSQL.
 : Contains the S3 parsing step. It downloads the S3 object, chooses a lightweight parser by file
 extension, returns LangChain `Document` objects, and adds consistent source metadata.
 Supported types are `.pdf`, `.docx`, `.pptx`, `.txt`, `.md`, and `.csv`. Legacy `.ppt` is supported
-only when LibreOffice/`soffice` is installed on the worker so it can be converted to `.pptx`.
+with a best-effort text extraction fallback. Legacy `.doc` is also supported with best-effort text
+extraction.
 
 `src/ingest_service/chunking.py`
 : Contains the chunking step. `chunk_documents()` uses `RecursiveCharacterTextSplitter` and adds a
